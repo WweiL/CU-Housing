@@ -27,9 +27,29 @@
           map: map
         });
       }
+      
+    //   var infowindow = new google.maps.InfoWindow();
+    //   var marker, i;
+    //
+    //   for (i = 0; i < locations.length; i++) {
+    //       marker = new google.maps.Marker({
+    //       position: new google.maps.LatLng(locations[i][1], locations[i][2]),
+    //       map: map
+    //     });
+    //
+    //     google.maps.event.addListener(marker, 'click', (function(marker, i) {
+    //       return function() {
+    //         infowindow.setContent(locations[i][0]);
+    //         infowindow.open(map, marker);
+    //       }
+    //     })(marker, i));
+    // }
     </script>
     <script async defer
     src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXYbOrAfV21W-SPj8ML-KXDqdP3kj3-_Y&callback=initMap">
     </script>
   </body>
 </html>
+<!-- ADD multiple locations: https://www.taniarascia.com/google-maps-apis-for-multiple-locations/ -->
+<!-- info window: https://developers.google.com/maps/documentation/javascript/infowindows -->
+<!-- addr to machine readable: https://developers.google.com/maps/documentation/geocoding/intro -->
