@@ -476,9 +476,9 @@ def init_db():
     for i, URL in enumerate(address):
         c.execute("INSERT INTO room(img0, img1, img2, img3, img4, electricity, water, internet, furnished, tv, dishwasher, \
                     location, price, bedroom_num, bath_num, url, lat, lng) \
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", \
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", \
                     [images[i][0], images[i][1], images[i][2], images[i][3], \
-                        images[i][4], images[i][5], electricity[i], water[i], \
+                        images[i][4], electricity[i], water[i], \
                         internet[i], furnished[i], tv[i], dishwasher[i], address[i], \
                         rent[i], bed[i], bath[i], url[i], lat[i], lng[i]])
     
