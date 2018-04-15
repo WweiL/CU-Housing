@@ -84,11 +84,11 @@ def get_house_info():
                     if addr != "ContactInfo":
                         address.append(addr)
                 if prop == 'Beds:':
-                    bed.append(get_beds(p.findNext('td')))
+                    bed.append(general(p.findNext('td')))
                 if prop == 'Baths:':
-                    bath.append(get_baths(p.findNext('td')))
+                    bath.append(general(p.findNext('td')))
                 if prop == 'Rent:':
-                    rent.append(get_rents(p.findNext('td')))
+                    rent.append(general(p.findNext('td')))
                 if prop == 'Electricity:':
                     electricity.append(1 if general(p.findNext('td')) == 'Yes' else 0)
                 if prop == 'Water:':
@@ -99,35 +99,10 @@ def get_house_info():
                     tv.append(1 if general(p.findNext('td')) == 'Yes' else 0)
                 if prop == 'Furnished:':
                     furnished.append(1 if general(p.findNext('td')) == 'Yes' else 0)
-                # if prop == 'Air Condition:':
-                #     air_condition.append((general(p.findNext('td'))))
                 if prop == 'Dishwasher:':
                     dishwasher.append(1 if general(p.findNext('td')) == 'Yes' else 0)
 
-        
-    # print(len(water), len(tv), len(internet), len(furnished), len(dishwasher), len(url))
-    # for i in range(len(water)):
-    #     print("w", water[i])
-    #     print("t", tv[i])
-    #     print("i", internet[i])
-    #     print("f", furnished[i])
-    #     print("d", dishwasher[i])
-    
     return images, urls, address, bed, bath, rent, electricity, water, internet, furnished, tv, dishwasher
-    # Electricity:
-# Water:
-# Gas:
-# Internet:
-# TV:
-# Furnished:
-# Air Condition:
-# Dishwasher:
-# Pets
-    #print (r.content)
-    #with open('f1.tx','w+') as input:
-    #    input.write(str(r.content))
-
-    # Now start a new psot
 
 def preprocess(string):
     string = string.encode('utf-8')
@@ -142,23 +117,6 @@ def get_address(td):
     # print("asds", addr)
     return addr
 
-def get_beds(beds):
-    beds = preprocess(beds.getText())
-    return beds
-    
-def get_baths(baths):
-    baths = preprocess(baths.getText())
-    return baths
-
-def get_rents(rent):
-    rent = preprocess(rent.getText())
-    return rent
-    # r1=requests.post("https://tenantunion.illinois.edu/housingexplorer/Student/PropertyDetails.aspx?aid=3152&Lid=35")
-    # r2=requests.post("https://tenantunion.illinois.edu/housingexplorer/Student/PropertyDetails.aspx?aid=3162&Lid=4063")
-    # with open('f1.tx','w+') as input:
-    #     input.write(str(r1.content))
-    #     input.write(str(r2.content))
-
 def general(td):
     item = preprocess(td.getText())
     return item
@@ -169,13 +127,13 @@ def get_image(div):
     prefix = 'https://tenantunion.illinois.edu/housingexplorer'
     for img in div.find_all('img'):
         img_list.append((prefix + img['src'].replace('..', '')).encode('utf8'))
-        print(len(img_list[i]))
         i += 1
         if i == 5:
             break
     while i < 5:
         img_list.append('https://tenantunion.illinois.edu/housingexplorer/ShowImage.ashx?id=1&iteration=1&AID=3191')
         i += 1
+    return img_list
     
 """"
     r = requests.post("https://tenantunion.illinois.edu/housingexplorer/Student/PropertyDetails.aspx?aid=3149&Lid=4058")
