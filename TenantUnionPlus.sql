@@ -35,8 +35,14 @@ create table room (
   img1 VARCHAR(150),
   img2 VARCHAR(150),
   img3 VARCHAR(150),
-  img4 VARCHAR(150)
-  -- PRIMARY KEY (location) failed if uncomment, not a primary key?
+  img4 VARCHAR(150),
+  rscore FLOAT(20) NOT NULL,
+  gymscore FLOAT(20) NOT NULL,
+  marketscore FLOAT(20) NOT NULL,
+  libraryscore FLOAT(20) NOT NULL,
+  north integer(1) default -1,
+  out integer(1) default -1,
+  PRIMARY KEY (url)
 );
 drop table if exists gym;
 create table gym (
@@ -66,6 +72,20 @@ CREATE TABLE library (
 DROP TABLE if exists restaurant;
 CREATE TABLE restaurant (
   building_name varchar(20) NOT NULL default 'DiaoSiZhiJia',
+  lat FLOAT(20) NOT NULL,
+  lng FLOAT(20) NOT NULL
+);
+
+DROP TABLE if exists supermarket;
+CREATE TABLE supermarket (
+  building_name varchar(20) NOT NULL default 'countymarket',
+  lat FLOAT(20) NOT NULL,
+  lng FLOAT(20) NOT NULL
+);
+
+DROP TABLE if exists gym;
+CREATE TABLE gym (
+  building_name varchar(20) NOT NULL default 'arc',
   lat FLOAT(20) NOT NULL,
   lng FLOAT(20) NOT NULL
 );

@@ -2,6 +2,7 @@ import os
 import time
 import json
 import requests
+import numpy as np
 import sqlite3
 from flask import Flask, request, session, g, redirect, url_for, abort, \
      render_template, flash
@@ -11,7 +12,7 @@ import googleapiclient.discovery
 from googleplaces import GooglePlaces, types, lang
 from readlocation import geocode
 from crawler import get_house_info, test
-import numpy as np
+from rate import *
 # from TenantUnionPlus import *
 # CSS: https://stackoverflow.com/questions/22259847/application-not-picking-up-css-file-flask-python
 # http://flask.pocoo.org/docs/0.12/tutorial/setup/#tutorial-setup
@@ -194,7 +195,6 @@ def map():
             # TODO: change price to unit_price!
             cmd = cmd + "(price >= " + i + " AND price <= " + i + "+200) OR "
         cmd = cmd[:-3]
-        print (cmd)
         c.execute(cmd)
 
     whole_profile = c.fetchall()
@@ -465,25 +465,76 @@ def get_db():
 
 def init_db():
     db = get_db()
-    images, url, address, bed, bath, rent, electricity, water, internet, furnished, tv, dishwasher = get_house_info()
-    # address, bed, bath, rent, url = test()
-    # print(address)
-    lat, lng = init_house_lat_lng(address)
     c = db.cursor()
     with app.open_resource('TenantUnionPlus.sql', mode='r') as f:
         c.executescript(f.read())
 
+    init_facilities('library')
+    init_facilities('restaurant')
+    init_facilities('supermarket')
+    init_facilities('gym')
+    
+    c.execute("SELECT * FROM library")
+    library=c.fetchall()
+    c.execute("SELECT * FROM restaurant")
+    restaurant=c.fetchall()
+    c.execute("SELECT * FROM gym")
+    gym=c.fetchall()
+    c.execute("SELECT * FROM supermarket")
+    market=c.fetchall()
+    
+    images, url, address, bed, bath, rent, electricity, water, internet, furnished, tv, dishwasher = get_house_info()
+    lat, lng = init_house_lat_lng(address)
+
     for i, URL in enumerate(address):
+        rscore=999999.0
+        gymscore=999999.0
+        marketscore=999999.0
+        libraryscore=999999.0
+        north=0.0
+        out=0.0
+        if lat[i]>41.9398312:
+            north=1
+
+        if lat[i]>40.116364 or lng[i]<-88.233661 or lat[i]<40.098189 or lng[i]>-88.219099:
+            out=1
+        c.execute("SELECT COUNT(*) FROM restaurant")
+        count=c.fetchone()
+        count=count[0]
+        for j in range(count):
+            new_len=(lat[i]-restaurant[j][1])**2+(lng[i]-restaurant[j][2])**2
+            if(rscore>new_len):
+                rscore=new_len
+        c.execute("SELECT COUNT(*) FROM gym")
+        count=c.fetchone()
+        count=count[0]
+        for j in range(count):
+            new_len=(lat[i]-gym[j][1])**2+(lng[i]-gym[j][2])**2
+            if(gymscore>new_len):
+                gymscore=new_len
+        c.execute("SELECT COUNT(*) FROM supermarket")
+        count=c.fetchone()
+        count=count[0]
+        for j in range(count):
+            new_len=(lat[i]-market[j][1])**2+(lng[i]-market[j][2])**2
+            if(marketscore>new_len):
+                marketscore=new_len
+        c.execute("SELECT COUNT(*) FROM library")
+        count=c.fetchone()
+        count=count[0]
+        for j in range(count):
+            new_len=(float(lat[i])-library[j][1])**2+(lng[i]-library[j][2])**2
+            if(libraryscore>new_len):
+                libraryscore=new_len
+
         c.execute("INSERT INTO room(img0, img1, img2, img3, img4, electricity, water, internet, furnished, tv, dishwasher, \
-                    location, price, bedroom_num, bath_num, url, lat, lng) \
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", \
+                    location, price, bedroom_num, bath_num, url, lat, lng, north, out, rscore, gymscore, marketscore, libraryscore) \
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", \
                     [images[i][0], images[i][1], images[i][2], images[i][3], \
                         images[i][4], electricity[i], water[i], \
                         internet[i], furnished[i], tv[i], dishwasher[i], address[i], \
-                        rent[i], bed[i], bath[i], url[i], lat[i], lng[i]])
-    
-    init_facilities('library')
-    init_facilities('restaurant')
+                        rent[i], bed[i], bath[i], url[i], lat[i], lng[i], \
+                        north, out, rscore, gymscore, marketscore, libraryscore])
     db.commit()
 
 def init_facilities(facility):
