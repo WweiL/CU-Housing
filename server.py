@@ -482,16 +482,19 @@ def init_db():
                         internet[i], furnished[i], tv[i], dishwasher[i], address[i], \
                         rent[i], bed[i], bath[i], url[i], lat[i], lng[i]])
     
-    name, lat, lng = init_facilities_lat_lng('library')
-    for i, _ in enumerate(name):
-        c.execute("INSERT INTO library(building_name, lat, lng) VALUES (?, ?, ?)", \
-                [name[i], lat[i], lng[i]])
+    init_facilities('library')
+    init_facilities('restaurant')
+    db.commit()
 
-    name, lat, lng = init_facilities_lat_lng('restaurant')
+def init_facilities(facility):
+    db = get_db()
+    c = db.cursor()
+    name, lat, lng = init_facilities_lat_lng(facility)
     for i, _ in enumerate(name):
-        c.execute("INSERT INTO restaurant(building_name, lat, lng) VALUES (?, ?, ?)", \
+        c.execute("INSERT INTO " + facility + "(building_name, lat, lng) VALUES (?, ?, ?)", \
                 [name[i], lat[i], lng[i]])
     db.commit()
+
 
 @app.cli.command('initdb')
 def initdb_command():
