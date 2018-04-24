@@ -4,6 +4,7 @@ import json
 import requests
 import numpy as np
 import sqlite3
+import pandas as pd
 from flask import Flask, request, session, g, redirect, url_for, abort, \
      render_template, flash
 import google.oauth2.credentials
@@ -12,7 +13,7 @@ import googleapiclient.discovery
 from googleplaces import GooglePlaces, types, lang
 from readlocation import geocode
 from crawler import get_house_info, test
-from rate import *
+# from rate import *
 # from TenantUnionPlus import *
 # CSS: https://stackoverflow.com/questions/22259847/application-not-picking-up-css-file-flask-python
 # http://flask.pocoo.org/docs/0.12/tutorial/setup/#tutorial-setup
@@ -185,9 +186,11 @@ def map():
     price_post = []
     if request.method == 'GET':
         c.execute("SELECT location, price, bedroom_num, bath_num, url, lat, lng from room")
-    else:
+    else: # POST
         bed_post = request.form.getlist('bed_post')
         price_post = request.form.getlist('price_post')
+        # print(bed_post)
+        # print(price_post)
         cmd = "SELECT location, price, bedroom_num, bath_num, url, lat, lng from room WHERE "
         for i in bed_post:
             cmd = cmd + "bedroom_num = " + str(i) + " OR "
@@ -237,72 +240,179 @@ def recommend():
     if request.method == "GET":
         return render_template('questions.html')
     else: # POST
-        year = request.form.get('year')
-        direction = request.form.get('direction')
+        # year = request.form.get('year')
+        location = request.form.get('direction')
         gym = request.form.get('gym')
         cook = request.form.get('cook')
         commute = request.form.get('commute')
         study = request.form.get('study')
-        pet = request.form.get('pet')
+        # pet = request.form.get('pet')
         # result should be a list of (lat, lng)
-        result = recommend_result(year, direction, gym, cook, commute, study, pet)
-        # return redirect(url_for('result'), locations=result)
+        result = give_result_lat_lng(location, gym, cook, commute, study)
+        print(result)
+        session['recommend_result'] = result.tolist()
         return redirect(url_for('result'))
+        # return redirect(url_for('result'))
         
-        
-def recommend_result(year, direction, gym, cook, commute, study, pet):
-    # get all lat/lngs
+def give_result_lat_lng(location, gym, eat, car, study):
     db = get_db()
     c = db.cursor()
-    c.execute("SELECT lat, lng from room")
-    latlng = c.fetchall()
-    
-    crce = np.array([40.1046767,-88.2239516])
-    arc = np.array([40.1015275,-88.2385425])
-    green_st = np.array([40.1101803,-88.2308469])
-    # or nearby search https://developers.google.com/places/web-service/search#PlaceSearchRequests
-    library = np.array([])
-    # return 20( or: inside knn() define a max value, return samples less than max) samples according to choice
+    result=score(location,gym,eat,car,study)
+    lat_lng=[]
+    for i in range(result.shape[0]):
+        c.execute("SELECT lat,lng FROM room WHERE location=?",[result[i][0]])
+        answer=c.fetchone()
+        lat_lng.append([answer[0],answer[1]])
+    lat_lng=np.array(lat_lng)
+    return lat_lng
+
+def get_home_dict():
+    db = get_db()
+    c = db.cursor()
+    c.execute("SELECT location,rscore,gymscore,marketscore,libraryscore,north,out  FROM room")
+    h=c.fetchall()
+    c.execute("SELECT COUNT(*) FROM room")
+    count=c.fetchone()
+    count=count[0]
+    home_dict=[]
+    for i in range(count):
+        home_dict.append([h[i][0],h[i][1],h[i][2],h[i][3],h[i][4],h[i][5],h[i][6]])
+    home_dict=np.array(home_dict)
+    return home_dict
+
+def score(location,gym,eat,car,study):
+    #rscore=list[0]
+    #rscore=srestaurantrate*srscore+orestaurantrate*orscore
+    home_dict=get_home_dict()
+    restaurantrate=0.3
+    gymrate=0.1
+    marketrate=0.3
+    libraryrate=0.2
+    nsrate=1.0
+    """if ('year' == 'fresh'):
+        srestaurantrate = 0.8
+        orestaurantrate = 0.2
+    else:
+        srestaurantrate = 0.1
+        orestaurantrate = 0.9"""
+
+    ###For location,question2:
+    # north==1,south==0
+
+
+
+    ###For gym, question3:
+    if (gym == 1.0):
+        gymrate = 0.1
+    elif (gym == 2.0):
+        gymrate = 0.15
+    elif (gym == 3.0):
+        gymrate = 0.25
+    else:
+        gymrate = 0.3
+
+    ###For question4:
+    # cook==1
+    if (eat == 1.0):
+        restaurantrate = 0.25
+        marketrate = 0.7
+
+    ###For question5##  :
+    # car==1
+
+    if (car == 0.0):
+        newhome_dict=[]
+        for i in range(home_dict.shape[0]):
+            if (home_dict[i][6].astype(float) == 0):  ##This means that the house is not on campus:
+                newhome_dict.append(home_dict[i])
+        home_dict = np.array(newhome_dict)
+
+    ###For question6
+    #library=0
+    if (study == 0.0):
+        libraryrate = 0.3
+    #print(home_dict)
+    #rscore=srestaurantrate*srscore+orestaurantrate*orscore
+    result=[]
+    for i in range(home_dict.shape[0]):
+        # north==1,south==0
+        if (location == 1) and (home_dict[i][5].astype(float) == 0):
+            ###This means if the house is in the north, house is equal to zero
+            nsrate = 0.66666666
+        elif (location == 0) and (home_dict[i][5].astype(float) == 1):
+            ###This means if the house is in the south house is equal to one
+            nsrate = 0.66666666
+        restaurantscore=home_dict[i][1].astype(float)
+        gymscore=home_dict[i][2].astype(float)
+        marketscore=home_dict[i][3].astype(float)
+        libraryscore=home_dict[i][4].astype(float)
+        finalscore=(nsrate*(restaurantrate*restaurantscore+gymrate*gymscore+marketrate*marketscore+libraryrate*libraryscore))/(restaurantrate+gymrate+marketrate+libraryrate)
+        result.append([home_dict[i][0],finalscore])
+    result=np.array(result)
+    #print(result)
+    result = result[result[:,-1].argsort()]
+    #print(result)
+    return result
+
+# def recommend_result(year, direction, gym, cook, commute, study):
+#     # get all lat/lngs
+#     db = get_db()
+#     c = db.cursor()
+#     c.execute("SELECT lat, lng from room")
+#     latlng = c.fetchall()
+#
+#     crce = np.array([40.1046767,-88.2239516])
+#     arc = np.array([40.1015275,-88.2385425])
+#     green_st = np.array([40.1101803,-88.2308469])
+#     # or nearby search https://developers.google.com/places/web-service/search#PlaceSearchRequests
+#     library = np.array([])
+#     # return 20( or: inside knn() define a max value, return samples less than max) samples according to choice
 
     
 @app.route('/result', methods=['POST', 'GET'])
 def result():
-#def result(locations):
+    locations = session['recommend_result']
+    db = get_db()
+    c = db.cursor()
+    bed_post = []
+    price_post = []
+    whole_profile = []
+    # if request.method == 'GET':
+    for latLng in locations:
+        c.execute("SELECT location, price, bedroom_num, bath_num, url, lat, \
+                    lng from room WHERE lat = ? AND lng = ?", [latLng[0], latLng[1]])
+        
+        whole_profile.append(c.fetchone())
+
     if request.method == 'POST':
-        bed = request.form.getlist('bed')
-        price = request.form.getlist('price')
-        print(bed, price)
-        return render_template('result.html', bed=bed, price=price)
-    else:
-        db = get_db()
-        c = db.cursor()
-        whole_profile = []
-        for latLng in locations:
-            c.execute("SELECT location, price, bedroom_num, bath_num, url, lat, lng from room WHERE lat = ? AND lng = ?", [latLng[0], latLng[1]])
-            whole_profile.append(c.fetchone())
-
-        address = []
-        bed = []
-        bath = []
-        rent = []
-        url = []
-        lat = []
-        lng = []
-
+        bed_post = request.form.getlist('bed_post')
+        price_post = request.form.getlist('price_post')
         for each_profile in whole_profile:
-            ''' TODO: may need to update 'each_profile[5]' when adding more attribute! '''
-            address.append(each_profile[0])
-            rent.append(each_profile[1])
-            bed.append(each_profile[2])
-            bath.append(each_profile[3])
-            url.append(each_profile[4])
-            lat.append(each_profile[5])
-            lng.append(each_profile[6])
-            
-        rent = process_rent(rent)
-        unit_rent = np.array(rent) / np.array(bed)
-        length = len(address)
-        return render_template('result.html', address = address, lat = lat, lng = lng, rent=rent, unit_rent = unit_rent, bed=bed, bath=bath, url=url, length=length)
+            if not each_profile[2] in bed_post or not each_profile[1] in price_post:
+                whole_profile.remove(each_profile)
+    
+    address = []
+    bed = []
+    bath = []
+    rent = []
+    url = []
+    lat = []
+    lng = []
+    
+    for each_profile in whole_profile:
+        ''' TODO: may need to update 'each_profile[5]' when adding more attribute! '''
+        address.append(each_profile[0])
+        rent.append(each_profile[1])
+        bed.append(each_profile[2])
+        bath.append(each_profile[3])
+        url.append(each_profile[4])
+        lat.append(each_profile[5])
+        lng.append(each_profile[6])
+    
+    rent = process_rent(rent)
+    unit_rent = np.array(rent) / np.array(bed)
+    length = len(address)
+    return render_template('result.html', address=address, lat=lat, lng=lng, rent=rent, unit_rent=unit_rent, bed=bed, bath=bath, url=url, length=length)
 
 @app.route('/user/<netid>', methods=["GET", "POST"])
 def profile(netid):
@@ -527,10 +637,10 @@ def init_db():
             if(libraryscore>new_len):
                 libraryscore=new_len
 
-        c.execute("INSERT INTO room(img0, img1, img2, img3, img4, electricity, water, internet, furnished, tv, dishwasher, \
+        c.execute("INSERT INTO room(id, img0, img1, img2, img3, img4, electricity, water, internet, furnished, tv, dishwasher, \
                     location, price, bedroom_num, bath_num, url, lat, lng, north, out, rscore, gymscore, marketscore, libraryscore) \
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", \
-                    [images[i][0], images[i][1], images[i][2], images[i][3], \
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", \
+                    [i, images[i][0], images[i][1], images[i][2], images[i][3], \
                         images[i][4], electricity[i], water[i], \
                         internet[i], furnished[i], tv[i], dishwasher[i], address[i], \
                         rent[i], bed[i], bath[i], url[i], lat[i], lng[i], \
